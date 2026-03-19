@@ -3,115 +3,77 @@ from datetime import datetime
 from dotenv import load_dotenv
 from openai import OpenAI
 
-load_dotenv()
+dotenv_patch = "tt_chat_funk/.env"
+load_dotenv(dotenv_patch)
 
 client = OpenAI(
-    api_key=os.getenv("GEMINI_API_KEY"),
-    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1"
 )
 
-MODEL = "gemini-2.0-flash-exp"
+MODEL = "minimax/minimax-m2.5:free"
 
 
-# Функция для получения времени
 def get_current_time():
-    """Возвращает текущее время в формате ЧЧ:ММ:СС"""
     return datetime.now().strftime("%H:%M:%S")
 
 
-# Описание функции для API
-tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "get_current_time",
-            "description": "Получить текущее время. Используй эту функцию, когда пользователь спрашивает 'сколько времени', 'который час', 'текущее время' и т.д.",
-            "parameters": {
-                "type": "object",
-                "properties": {},  # Функция без параметров
-                "required": []
-            }
-        }
+tools = [{
+    "type": "function",
+    "function": {
+        "name": "get_current_time",
+        "description": "Возвращает текущее время",
+        "parameters": {"type": "object", "properties": {}}
     }
-]
+}]
 
-# Системный промпт с инструкцией
-system_prompt = """Ты - полезный ассистент.
-У тебя есть функция get_current_time, которая возвращает текущее время.
-Используй её, когда пользователь спрашивает про время (например: "сколько времени?", "который час?", "текущее время").
-Для обычных вопросов просто отвечай как обычно."""
+messages = [{
+    "role": "system",
+    "content": """Ты - ассистент с функцией get_current_time.
 
-# История сообщений
-messages = [
-    {"role": "system", "content": system_prompt}
-]
+ВАЖНО: Для получения времени используй ТОЛЬКО механизм function calling
 
-print("🤖 Чат-бот запущен! (Напиши 'пока' для выхода)")
-print("-" * 50)
+Ответы в формате:
+<tool_call>
+<function=get_current_time>
+</function>
+</tool_call>
+
+Принимаются как неправильные
+"""
+}]
+
+print("Бот запущен. Введите 'выход' для завершения.")
 
 while True:
-    # Получаем сообщение от пользователя
-    user_input = input("\n👤 Вы: ").strip()
+    user_input = input("Вы: ")
 
-    # Проверка на выход
-    if user_input.lower() in ["пока", "выход", "exit", "quit", "bye"]:
-        print("🤖 Бот: До свидания! 👋")
+    if user_input.lower() in ["выход", "exit", "пока"]:
+        print("Бот: Пока")
         break
 
-    if not user_input:
-        continue
-
-    # Добавляем сообщение в историю
     messages.append({"role": "user", "content": user_input})
 
     try:
-        # Отправляем запрос в Gemini
         response = client.chat.completions.create(
             model=MODEL,
             messages=messages,
-            tools=tools,
-            tool_choice="auto"
+            tools=tools
         )
 
-        # Получаем ответ от модели
-        assistant_message = response.choices[0].message
+        msg = response.choices[0].message
 
-        # Проверяем, хочет ли модель вызвать функцию
-        if assistant_message.tool_calls:
-            print("🔧 [Вызываю функцию get_current_time...]")
+        if msg.tool_calls:
+            time = get_current_time()
 
-            # Вызываем функцию
-            time_result = get_current_time()
-
-            # Добавляем запрос на вызов функции в историю
-            messages.append(assistant_message)
-
-            # Отправляем результат функции обратно
-            function_call_result_message = {
-                "role": "tool",
-                "content": time_result,
-                "tool_call_id": assistant_message.tool_calls[0].id
+            simplified_history = {
+                "role": "assistant",
+                "content": f"[Я вызвал функцию и получил время: {time}]"
             }
-            messages.append(function_call_result_message)
 
-            # Получаем финальный ответ от модели
-            second_response = client.chat.completions.create(
-                model=MODEL,
-                messages=messages
-            )
-            final_message = second_response.choices[0].message.content
-        else:
-            # Обычный ответ без вызова функции
-            final_message = assistant_message.content
+            messages.append(simplified_history)
 
-        # Выводим ответ
-        print(f"🤖 Бот: {final_message}")
-
-        # Добавляем ответ в историю
-        messages.append({"role": "assistant", "content": final_message})
+            print(f"Бот: Сейчас {time}")
 
     except Exception as e:
-        print(f"❌ Ошибка: {e}")
-
-print("\n" + "-" * 50)
-print("Чат завершен")
+        print(f"Ошибка: {e}")
