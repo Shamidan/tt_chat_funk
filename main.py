@@ -3,7 +3,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from openai import OpenAI
 
-dotenv_patch = r"C:\Users\Шамед\py\tt_chat_funk\tt_chat_funk\.env"
+dotenv_patch = r"tt_chat_funk/.env"
 load_dotenv(dotenv_patch)
 
 client = OpenAI(
