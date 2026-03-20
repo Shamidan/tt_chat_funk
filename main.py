@@ -3,7 +3,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from openai import OpenAI
 
-dotenv_patch = "tt_chat_funk/.env"
+dotenv_patch = r"C:\Users\Шамед\py\tt_chat_funk\tt_chat_funk\.env"
 load_dotenv(dotenv_patch)
 
 client = OpenAI(
@@ -11,7 +11,7 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1"
 )
 
-MODEL = "minimax/minimax-m2.5:free"
+MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 
 
 def get_current_time():
@@ -48,7 +48,7 @@ print("Бот запущен. Введите 'выход' для заверше�
 while True:
     user_input = input("Вы: ")
 
-    if user_input.lower() in ["выход", "exit", "пока"]:
+    if user_input.lower() in ["выход", "exit"]:
         print("Бот: Пока")
         break
 
@@ -65,15 +65,21 @@ while True:
 
         if msg.tool_calls:
             time = get_current_time()
+            messages.append(msg)
+            messages.append({
+                "role": "tool",
+                "content": time,
+                "tool_call_id": msg.tool_calls[0].id
+            })
 
-            simplified_history = {
-                "role": "assistant",
-                "content": f"[Я вызвал функцию и получил время: {time}]"
-            }
-
-            messages.append(simplified_history)
-
-            print(f"Бот: Сейчас {time}")
+            final = client.chat.completions.create(
+                model=MODEL,
+                messages=messages
+            )
+            print(f"Бот: {final.choices[0].message.content}")
+        else:
+            print(f"Бот: {msg.content}")
+            messages.append(msg)
 
     except Exception as e:
         print(f"Ошибка: {e}")
